@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Studio Calculator Final</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        
+        /* Убираем стрелки у input number */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        /* Стили для карточки при выборе */
+        .custom-radio:checked + div { 
+            border-color: #7E73FD; 
+            background-color: #eff6ff; 
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+        }
+
+        /* --- СТИЛИ ЧЕКБОКСОВ И РАДИО --- */
+        
+        /* Состояние "Не отмечено" (по умолчанию) */
+        .check-icon {
+            background-color: #ffffff; /* Белый фон */
+            border-color: #cbd5e1;     /* Серые границы */
+            color: transparent;        /* Иконка скрыта */
+            transition: all 0.2s ease;
+        }
+
+        /* Состояние "Отмечено" */
+        .custom-radio:checked + div .check-icon { 
+            background-color: #7E73FD; /* Синий фон */
+            border-color: #7E73FD;
+            color: #ffffff;            /* Белая галочка */
+            transform: scale(1.1);
+        }
+        
+        /* Скроллбар */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden">
+
+<!-- Шапка (Sticky) -->
+<header class="bg-white border-b border-slate-200 py-4 px-6 flex justify-between items-center shadow-sm z-30 relative">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xl shadow-blue-200 shadow-lg">
+            <i class="fas fa-calculator"></i>
+        </div>
+        <div>
+            <h1 class="font-bold text-lg leading-tight text-slate-800">Калькулятор Сметы</h1>
+            <p class="text-xs text-slate-500 font-medium">Для внутреннего использования</p>
+        </div>
+    </div>
+    <div class="text-right">
+        <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Итоговая сумма</div>
+        <div class="text-2xl font-extrabold text-blue-600 tracking-tight" id="header-total">0 ₽</div>
+    </div>
+</header>
+
+<!-- Основной лейаут -->
+<main class="flex-1 flex overflow-hidden relative">
+    
+    <!-- ЛЕВАЯ ПАНЕЛЬ: Настройки (Скролл) -->
+    <div class="flex-1 overflow-y-auto custom-scroll p-4 md:p-8 pb-32 max-w-4xl mx-auto w-full" id="form-container">
+        <!-- Сюда рендерится JS -->
+    </div>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ: Чек (Скрыта на мобильных, видна на десктопе) -->
+    <div class="w-96 bg-white border-l border-slate-200 flex flex-col shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] z-20 hidden lg:flex">
+        <div class="p-5 border-b border-slate-100 bg-slate-50/50 backdrop-blur-sm">
+            <h2 class="font-bold text-slate-700 flex items-center gap-2 text-sm uppercase tracking-wide">
+                <i class="fas fa-list-ul text-blue-500"></i> Детализация
+            </h2>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto custom-scroll p-5" id="receipt-list">
+            <!-- Пустое состояние -->
+            <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                <i class="fas fa-calculator text-4xl mb-4 text-slate-200"></i>
+                <p class="text-sm text-center">Выберите параметры слева,<br>чтобы начать расчет</p>
+            </div>
+        </div>
+
+        <!-- Нижняя панель действий -->
+        <div class="p-5 border-t border-slate-200 bg-white">
+            <div class="flex justify-between items-end mb-4">
+                <span class="text-sm font-medium text-slate-500">К оплате:</span>
+                <span class="text-3xl font-extrabold text-slate-900" id="sidebar-total">0 ₽</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <!-- Убраны анимации (animate-bounce, active:scale, transition и group) -->
+                <button onclick="copyEstimate()" class="col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                    <i class="fas fa-copy"></i> Копировать КП
+                </button>
+                <button onclick="softReset()" class="col-span-1 bg-white border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-500 hover:border-red-200 font-semibold py-3 px-4 rounded-xl transition-colors text-sm flex items-center justify-center shadow-sm">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Уведомление (Toast) -->
+<div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 translate-y-24 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-300 flex items-center gap-3 z-50 pointer-events-none opacity-0">
+    <i class="fas fa-check-circle text-green-400"></i>
+    <span id="toast-msg" class="font-medium">Уведомление</span>
+</div>
+
+<script>
+    /* =========================================
+       БАЗА ДАННЫХ УСЛУГ (DATABASE)
+       ========================================= */
+    const services = [
+        {
+            id: "project_type",
+            title: "1. Тип проекта",
+            icon: "fa-rocket",
+            type: "radio",
+            options: [
+                { id: "landing", label: "Landing Page", price: 10000, desc: "Продающая страница (1-5 экранов)" },
+                { id: "shop", label: "Интернет-магазин", price: 15000, desc: "Корзина, оплата, личный кабинет" },
+                { id: "corporate", label: "Корпоративный сайт", price: 25000, desc: "Многостраничник о компании" }               
+            ]
+        },
+        {
+            id: "design_tier",
+            title: "2. Дизайн и UI/UX",
+            icon: "fa-palette",
+            type: "radio",
+            options: [
+                { id: "tpl", label: "Дизайн (Шаблонное решение)", price: 5000, desc: "Адаптация готовой темы" },
+                { id: "clean", label: "Дизайн (Базовый)", price: 10000, desc: "Минимализм, прототипирование" },
+                { id: "clean", label: "Дизайн (Продвинутый)", price: 10000, desc: "Минимализм, прототипирование" },
+                { id: "wow", label: "Премиум дизайн (WOW-эффект)", price: 45000, desc: "Сложная анимация, 3D элементы" }
+            ]
+        },
+        {
+            id: "cms",
+            title: "3. Платформа (CMS)",
+            icon: "fa-server",
+            type: "radio",
+            options: [
+                { id: "nocode", label: "Tilda", price: 2500, desc: "Быстрый запуск, используем конструктор" },
+                { id: "wp", label: "WordPress", price: 5000, desc: "Удобная админка, популярная CMS" },
+                { id: "code", label: "Разработка с нуля (Базовая)", price: 10000, desc: "Для Landing Page и других информацияонных сайтов" },
+                { id: "code", label: "Разработка с нуля (Продвинутая)", price: 25000, desc: "Для Корпоративных многостраничников и интернет магазинов" }
+            ]
+        },
+        {
+            id: "content",
+            title: "4. Контент и Наполнение",
+            icon: "fa-file-signature",
+            type: "qty_inputs",
+            inputs: [
+                { id: "pages", label: "Внутренние страницы", price: 1000, unit: "стр.", desc: "Верстка + Контент" },
+            ]
+        },
+        {
+            id: "features",
+            title: "5. Модули и Функции",
+            icon: "fa-puzzle-piece",
+            type: "checkbox",
+            options: [
+                { id: "form_calc", label: "Сложный калькулятор", price: 5000 },
+                { id: "quiz", label: "Квиз-опросник", price: 2500 },
+                { id: "payment", label: "Онлайн-оплата (Эквайринг)", price: 6000 },
+                { id: "delivery", label: "Интеграция доставки (API)", price: 12000 },
+                { id: "crm", label: "Интеграция CRM", price: 12000 },
+                { id: "application", label: "Подача заявки", price: 5000 },
+                { id: "search", label: "Обратная связь", price: 5000 }
+            ]
+        },
+        // {
+        //     id: "marketing",
+        //     title: "6. Маркетинг",
+        //     icon: "fa-bullhorn",
+        //     type: "checkbox",
+        //     options: [
+        //         { id: "seo", label: "SEO-оптимизация (Start)", price: 15000 },
+        //         { id: "copy", label: "Копирайтинг (Главная)", price: 8000 },
+        //         { id: "analytics", label: "Настройка аналитики", price: 5000 }
+        //     ]
+        // },
+        {
+            id: "conditions",
+            title: "7. Условия",
+            icon: "fa-stopwatch",
+            type: "checkbox",
+            options: [
+                { id: "urgent", label: "Срочность (x1.3)", price: 1.3, isMultiplier: true, desc: "+30% к смете" },
+            ]
+        }
+    ];
+
+    /* =========================================
+       STATE & CORE LOGIC
+       ========================================= */
+    
+    let state = {
+        selected: {},
+        quantities: {}
+    };
+
+    const container = document.getElementById('form-container');
+    const totalEls = [document.getElementById('header-total'), document.getElementById('sidebar-total')];
+    const receiptList = document.getElementById('receipt-list');
+
+    function init() {
+        container.innerHTML = '';
+        
+        services.forEach((section, idx) => {
+            let contentHTML = '';
+
+            if (section.type === 'radio' || section.type === 'checkbox') {
+                contentHTML = section.options.map(opt => renderOptionHTML(section, opt)).join('');
+            } else if (section.type === 'qty_inputs') {
+                contentHTML = section.inputs.map(inp => renderQtyHTML(inp)).join('');
+            }
+
+            const html = `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+                    <div class="w-full px-6 py-5 flex items-center justify-between bg-white border-b border-slate-100">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-lg">
+                                <i class="fas ${section.icon}"></i>
+                            </div>
+                            <span class="font-bold text-lg text-slate-700">${section.title}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="block">
+                        <div class="px-6 pb-6 pt-4">
+                            <div class="grid grid-cols-1 gap-3 pt-2">
+                                ${contentHTML}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    // HTML для Radio/Checkbox
+    function renderOptionHTML(section, opt) {
+        const inputType = section.type;
+        const nameAttr = section.type === 'radio' ? `name="${section.id}"` : '';
+        
+        // Определяем форму: круг для радио, квадрат для чекбокса
+        const shapeClass = inputType === 'radio' ? 'rounded-full' : 'rounded-md';
+
+        // Форматирование цены
+        let priceTag = '';
+        if (opt.isMultiplier) {
+            priceTag = `<span class="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded text-xs">+${Math.round((opt.price-1)*100)}%</span>`;
+        } else if (opt.price === 0) {
+            priceTag = `<span class="text-green-600 font-bold bg-green-50 px-2 py-1 rounded text-xs">FREE</span>`;
+        } else {
+            priceTag = `<span class="text-slate-500 font-medium text-sm">+${opt.price.toLocaleString()} ₽</span>`;
+        }
+
+        return `
+            <label class="cursor-pointer relative block">
+                <input type="${inputType}" ${nameAttr} 
+                    id="opt_${opt.id}"
+                    class="peer sr-only custom-radio" 
+                    onchange="handleOptionChange('${section.id}', '${opt.id}', '${inputType}', ${opt.price}, ${opt.isMultiplier || false}, '${opt.label}')">
+                
+                <div class="p-4 rounded-xl border border-slate-200 hover:border-blue-400 bg-white flex justify-between items-center transition-all duration-200">
+                    <div class="flex items-center gap-3">
+                        <!-- Видимый чекбокс/радио (пустой по умолчанию) -->
+                        <div class="w-6 h-6 ${shapeClass} border-2 border-slate-300 flex items-center justify-center check-icon shrink-0 shadow-sm">
+                            <i class="fas fa-check text-xs"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-slate-800 leading-tight">${opt.label}</div>
+                            ${opt.desc ? `<div class="text-xs text-slate-400 mt-1">${opt.desc}</div>` : ''}
+                        </div>
+                    </div>
+                    <div>${priceTag}</div>
+                </div>
+            </label>
+        `;
+    }
+
+    // HTML для количественных инпутов
+    function renderQtyHTML(inp) {
+        return `
+            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-blue-200 hover:bg-white">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs">
+                        <i class="fas fa-times"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium text-slate-800">${inp.label}</div>
+                        <div class="text-xs text-slate-400">${inp.price.toLocaleString()} ₽ / ${inp.unit}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+                    <button onclick="changeQtyValue('${inp.id}', -1)" class="w-8 h-8 rounded hover:bg-slate-100 text-slate-600 font-bold transition-colors select-none">-</button>
+                    <input type="number" id="qty_input_${inp.id}" value="0" min="0" 
+                        class="w-12 text-center font-bold text-slate-800 outline-none"
+                        oninput="handleQtyChange('${inp.id}', this.value, ${inp.price}, '${inp.label}', '${inp.unit}')">
+                    <button onclick="changeQtyValue('${inp.id}', 1)" class="w-8 h-8 rounded hover:bg-blue-50 text-blue-600 font-bold transition-colors select-none">+</button>
+                </div>
+            </div>
+        `;
+    }
+
+    /* =========================================
+       HANDLERS
+       ========================================= */
+
+    window.handleOptionChange = function(sectionId, optId, type, price, isMult, label) {
+        if (type === 'radio') {
+            const section = services.find(s => s.id === sectionId);
+            section.options.forEach(o => delete state.selected[o.id]);
+        }
+        
+        const key = optId;
+        const el = document.getElementById('opt_' + optId);
+        
+        if (el.checked) {
+            state.selected[key] = { price, isMult, label, sectionId };
+        } else {
+            delete state.selected[key];
+        }
+        
+        calculateTotal();
+    }
+
+    window.handleQtyChange = function(id, value, price, label, unit) {
+        const val = parseInt(value) || 0;
+        if (val > 0) {
+            state.quantities[id] = { qty: val, price, label, unit };
+        } else {
+            delete state.quantities[id];
+        }
+        calculateTotal();
+    }
+
+    window.changeQtyValue = function(id, delta) {
+        const input = document.getElementById(`qty_input_${id}`);
+        let newVal = (parseInt(input.value) || 0) + delta;
+        if (newVal < 0) newVal = 0;
+        
+        input.value = newVal;
+        input.dispatchEvent(new Event('input'));
+    }
+
+    /* =========================================
+       CALCULATION
+       ========================================= */
+
+    function calculateTotal() {
+        let sum = 0;
+        let mult = 1;
+        let itemsHTML = '';
+        let hasItems = false;
+
+        for (const key in state.selected) {
+            const item = state.selected[key];
+            if (item.isMult) {
+                mult *= item.price;
+            } else {
+                sum += item.price;
+                itemsHTML += createReceiptItem(item.label, item.price);
+                hasItems = true;
+            }
+        }
+
+        for (const key in state.quantities) {
+            const item = state.quantities[key];
+            const cost = item.qty * item.price;
+            sum += cost;
+            itemsHTML += createReceiptItem(`${item.label} <span class="text-xs text-slate-400">(${item.qty} ${item.unit})</span>`, cost);
+            hasItems = true;
+        }
+
+        const total = Math.round(sum * mult);
+
+        for (const key in state.selected) {
+            const item = state.selected[key];
+            if (item.isMult) {
+                const percent = Math.round((item.price - 1) * 100);
+                itemsHTML += `
+                    <div class="flex justify-between items-center py-2 border-b border-dashed border-slate-200 text-amber-600 animate-pulse">
+                        <span class="text-sm font-semibold">⚡ ${item.label}</span>
+                        <span class="font-bold text-xs">+${percent}%</span>
+                    </div>
+                `;
+            }
+        }
+
+        if (!hasItems && mult === 1) {
+            receiptList.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                    <i class="fas fa-calculator text-4xl mb-4 text-slate-200"></i>
+                    <p class="text-sm text-center">Выберите параметры слева,<br>чтобы начать расчет</p>
+                </div>`;
+        } else {
+            receiptList.innerHTML = itemsHTML;
+        }
+
+        totalEls.forEach(el => {
+            el.innerText = total.toLocaleString() + ' ₽';
+        });
+    }
+
+    function createReceiptItem(name, price) {
+        return `
+            <div class="flex justify-between items-start py-3 border-b border-slate-100 last:border-0">
+                <span class="text-sm text-slate-700 w-2/3 leading-snug">${name}</span>
+                <span class="text-sm font-bold text-blue-600 whitespace-nowrap">${price.toLocaleString()} ₽</span>
+            </div>
+        `;
+    }
+
+    /* =========================================
+       UTILITIES
+       ========================================= */
+
+    window.softReset = function() {
+        // Убрал confirm(), так как он может блокироваться и мешать работе кнопки
+        state = { selected: {}, quantities: {} };
+
+        const allInputs = document.querySelectorAll('input');
+        allInputs.forEach(input => {
+            if (input.type === 'checkbox' || input.type === 'radio') {
+                input.checked = false;
+            } else if (input.type === 'number') {
+                input.value = 0;
+            }
+        });
+
+        calculateTotal();
+        showToast('Расчет очищен');
+    }
+
+    window.copyEstimate = function() {
+        let text = `СМЕТА ПРОЕКТА\nДата: ${new Date().toLocaleDateString()}\n\n`;
+        let totalVal = document.getElementById('sidebar-total').innerText;
+        let hasContent = false;
+        
+        services.forEach(section => {
+            let sectionLines = [];
+            
+            if (section.options) {
+                section.options.forEach(opt => {
+                    if (state.selected[opt.id]) {
+                        const s = state.selected[opt.id];
+                        const priceStr = s.isMult ? `+${Math.round((s.price-1)*100)}%` : `${s.price.toLocaleString()} ₽`;
+                        sectionLines.push(`- ${s.label}: ${priceStr}`);
+                    }
+                });
+            }
+            
+            if (section.inputs) {
+                section.inputs.forEach(inp => {
+                    if (state.quantities[inp.id]) {
+                        const q = state.quantities[inp.id];
+                        sectionLines.push(`- ${q.label} (${q.qty} ${q.unit}): ${(q.qty * q.price).toLocaleString()} ₽`);
+                    }
+                });
+            }
+
+            if (sectionLines.length > 0) {
+                hasContent = true;
+                text += `🔹 ${section.title.toUpperCase()}\n${sectionLines.join('\n')}\n\n`;
+            }
+        });
+
+        if (!hasContent) {
+            showToast('Смета пуста!');
+            return;
+        }
+
+        text += `================================\n`;
+        text += `ИТОГО: ${totalVal}`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('КП скопировано в буфер!');
+        });
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        document.getElementById('toast-msg').innerText = msg;
+        t.style.opacity = '1';
+        t.style.transform = 'translate(-50%, 0)';
+        setTimeout(() => {
+            t.style.opacity = '0';
+            t.style.transform = 'translate(-50%, 96px)';
+        }, 3000);
+    }
+
+    // Запуск
+    init();
+
+</script>
+</body>
+</html>
