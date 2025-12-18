@@ -44,6 +44,30 @@
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Ползунок (Range) */
+        input[type=range] {
+            -webkit-appearance: none; /* Hides the slider so that custom slider can be made */
+            width: 100%; /* Specific width is required for Firefox. */
+            background: transparent; /* Otherwise white in Chrome */
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #2563EB;
+            cursor: pointer;
+            margin-top: -8px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden">
@@ -198,6 +222,16 @@
             options: [
                 { id: "urgent", label: "Срочность (x1.3)", price: 1.3, isMultiplier: true, desc: "+30% к смете" },
             ]
+        },
+        {
+            id: "discount",
+            title: "8. Скидка / Лояльность",
+            icon: "fa-tags",
+            type: "range",
+            min: 0,
+            max: 50,
+            step: 1,
+            unit: "%"
         }
     ];
 
@@ -207,7 +241,8 @@
     
     let state = {
         selected: {},
-        quantities: {}
+        quantities: {},
+        discount: 0
     };
 
     const container = document.getElementById('form-container');
@@ -224,6 +259,8 @@
                 contentHTML = section.options.map(opt => renderOptionHTML(section, opt)).join('');
             } else if (section.type === 'qty_inputs') {
                 contentHTML = section.inputs.map(inp => renderQtyHTML(inp)).join('');
+            } else if (section.type === 'range') {
+                contentHTML = renderRangeHTML(section);
             }
 
             const html = `
@@ -254,11 +291,8 @@
     function renderOptionHTML(section, opt) {
         const inputType = section.type;
         const nameAttr = section.type === 'radio' ? `name="${section.id}"` : '';
-        
-        // Определяем форму: круг для радио, квадрат для чекбокса
         const shapeClass = inputType === 'radio' ? 'rounded-full' : 'rounded-md';
 
-        // Форматирование цены
         let priceTag = '';
         if (opt.isMultiplier) {
             priceTag = `<span class="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded text-xs">+${Math.round((opt.price-1)*100)}%</span>`;
@@ -277,7 +311,6 @@
                 
                 <div class="p-4 rounded-xl border border-slate-200 hover:border-blue-400 bg-white flex justify-between items-center transition-all duration-200">
                     <div class="flex items-center gap-3">
-                        <!-- Видимый чекбокс/радио (пустой по умолчанию) -->
                         <div class="w-6 h-6 ${shapeClass} border-2 border-slate-300 flex items-center justify-center check-icon shrink-0 shadow-sm">
                             <i class="fas fa-check text-xs"></i>
                         </div>
@@ -311,6 +344,29 @@
                         class="w-12 text-center font-bold text-slate-800 outline-none"
                         oninput="handleQtyChange('${inp.id}', this.value, ${inp.price}, '${inp.label}', '${inp.unit}')">
                     <button onclick="changeQtyValue('${inp.id}', 1)" class="w-8 h-8 rounded hover:bg-blue-50 text-blue-600 font-bold transition-colors select-none">+</button>
+                </div>
+            </div>
+        `;
+    }
+
+    // HTML для Range (Скидка)
+    function renderRangeHTML(section) {
+        return `
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="range_${section.id}" class="font-medium text-slate-700">Размер скидки</label>
+                    <span class="font-bold text-blue-600 text-lg bg-blue-50 px-3 py-1 rounded-lg border border-blue-100" id="range_val_${section.id}">0%</span>
+                </div>
+                <input type="range" 
+                    id="range_${section.id}" 
+                    min="${section.min}" 
+                    max="${section.max}" 
+                    step="${section.step}" 
+                    value="0"
+                    oninput="handleRangeChange(this.value, '${section.id}')">
+                <div class="flex justify-between text-xs text-slate-400 mt-2 font-medium">
+                    <span>${section.min}%</span>
+                    <span>${section.max}%</span>
                 </div>
             </div>
         `;
@@ -357,6 +413,13 @@
         input.dispatchEvent(new Event('input'));
     }
 
+    window.handleRangeChange = function(value, id) {
+        const val = parseInt(value) || 0;
+        state.discount = val;
+        document.getElementById(`range_val_${id}`).innerText = val + '%';
+        calculateTotal();
+    }
+
     /* =========================================
        CALCULATION
        ========================================= */
@@ -367,6 +430,7 @@
         let itemsHTML = '';
         let hasItems = false;
 
+        // 1. Базовая стоимость (услуги)
         for (const key in state.selected) {
             const item = state.selected[key];
             if (item.isMult) {
@@ -378,6 +442,7 @@
             }
         }
 
+        // 2. Количественные услуги
         for (const key in state.quantities) {
             const item = state.quantities[key];
             const cost = item.qty * item.price;
@@ -386,8 +451,7 @@
             hasItems = true;
         }
 
-        const total = Math.round(sum * mult);
-
+        // 3. Применение множителей (Срочность и т.д.)
         for (const key in state.selected) {
             const item = state.selected[key];
             if (item.isMult) {
@@ -401,6 +465,28 @@
             }
         }
 
+        let preTotal = Math.round(sum * mult);
+        let finalTotal = preTotal;
+
+        // 4. Применение Скидки (если есть)
+        if (state.discount > 0) {
+            const discountAmount = Math.round(preTotal * (state.discount / 100));
+            finalTotal = preTotal - discountAmount;
+
+            itemsHTML += `
+                <div class="flex justify-between items-center py-3 border-t border-slate-100 text-green-600 bg-green-50/50 -mx-5 px-5 mt-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-tags text-xs"></i>
+                        <span class="text-sm font-semibold">Скидка клиента</span>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-sm">-${discountAmount.toLocaleString()} ₽</div>
+                        <div class="text-xs opacity-75">${state.discount}%</div>
+                    </div>
+                </div>
+            `;
+        }
+
         if (!hasItems && mult === 1) {
             receiptList.innerHTML = `
                 <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
@@ -412,7 +498,7 @@
         }
 
         totalEls.forEach(el => {
-            el.innerText = total.toLocaleString() + ' ₽';
+            el.innerText = finalTotal.toLocaleString() + ' ₽';
         });
     }
 
@@ -430,8 +516,7 @@
        ========================================= */
 
     window.softReset = function() {
-        // Убрал confirm(), так как он может блокироваться и мешать работе кнопки
-        state = { selected: {}, quantities: {} };
+        state = { selected: {}, quantities: {}, discount: 0 };
 
         const allInputs = document.querySelectorAll('input');
         allInputs.forEach(input => {
@@ -439,6 +524,12 @@
                 input.checked = false;
             } else if (input.type === 'number') {
                 input.value = 0;
+            } else if (input.type === 'range') {
+                input.value = 0;
+                // Обновляем текст рядом с ползунком
+                const id = input.id.replace('range_', '');
+                const textEl = document.getElementById(`range_val_${id}`);
+                if (textEl) textEl.innerText = '0%';
             }
         });
 
@@ -484,8 +575,13 @@
             return;
         }
 
+        // Добавляем инфо о скидке в текст буфера
+        if (state.discount > 0) {
+             text += `🎁 СКИДКА: ${state.discount}%\n`;
+        }
+
         text += `================================\n`;
-        text += `ИТОГО: ${totalVal}`;
+        text += `ИТОГО К ОПЛАТЕ: ${totalVal}`;
 
         navigator.clipboard.writeText(text).then(() => {
             showToast('КП скопировано в буфер!');
@@ -508,10 +604,4 @@
 
 </script>
 </body>
-
 </html>
-
-
-
-
-
