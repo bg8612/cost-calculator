@@ -140,7 +140,7 @@
             options: [
                 { id: "tpl", label: "Дизайн (Шаблонное решение)", price: 5000, desc: "Адаптация готовой темы" },
                 { id: "clean", label: "Дизайн (Базовый)", price: 10000, desc: "Минимализм, прототипирование" },
-                { id: "clean", label: "Дизайн (Продвинутый)", price: 10000, desc: "Минимализм, прототипирование" },
+                { id: "medium", label: "Дизайн (Продвинутый)", price: 15000, desc: "Любой стиль, глубое исследование" },
                 { id: "wow", label: "Премиум дизайн (WOW-эффект)", price: 45000, desc: "Сложная анимация, 3D элементы" }
             ]
         },
@@ -152,6 +152,7 @@
             options: [
                 { id: "nocode", label: "Tilda", price: 2500, desc: "Быстрый запуск, используем конструктор" },
                 { id: "wp", label: "WordPress", price: 5000, desc: "Удобная админка, популярная CMS" },
+                { id: "wpplus", label: "WordPress+", price: 6500, desc: "Тоже самое что и WordPress но с индивидуальным не шаблонным дизайном" },
                 { id: "code", label: "Разработка с нуля (Базовая)", price: 10000, desc: "Для Landing Page и других информацияонных сайтов" },
                 { id: "code", label: "Разработка с нуля (Продвинутая)", price: 25000, desc: "Для Корпоративных многостраничников и интернет магазинов" }
             ]
@@ -162,7 +163,7 @@
             icon: "fa-file-signature",
             type: "qty_inputs",
             inputs: [
-                { id: "pages", label: "Внутренние страницы", price: 1000, unit: "стр.", desc: "Верстка + Контент" },
+                { id: "pages", label: "Внутренние страницы", price: 450, unit: "стр.", desc: "Верстка + Контент" },
             ]
         },
         {
@@ -171,13 +172,11 @@
             icon: "fa-puzzle-piece",
             type: "checkbox",
             options: [
-                { id: "form_calc", label: "Сложный калькулятор", price: 5000 },
-                { id: "quiz", label: "Квиз-опросник", price: 2500 },
-                { id: "payment", label: "Онлайн-оплата (Эквайринг)", price: 6000 },
-                { id: "delivery", label: "Интеграция доставки (API)", price: 12000 },
-                { id: "crm", label: "Интеграция CRM", price: 12000 },
-                { id: "application", label: "Подача заявки", price: 5000 },
-                { id: "search", label: "Обратная связь", price: 5000 }
+                { id: "form_calc", label: "Сложный калькулятор", price: 3500 },
+                { id: "quiz", label: "Квиз-опросник", price: 2000 },
+                { id: "delivery", label: "Интеграция доставки (API)", price: 9000 },
+                // { id: "crm", label: "Интеграция CRM", price: 12000 },
+                { id: "application", label: "Подача заявки или Обратная связь", price: 2500 }
             ]
         },
         // {
@@ -511,3 +510,4 @@
 </body>
 
 </html>
+
